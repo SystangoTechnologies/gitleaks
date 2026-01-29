@@ -87,3 +87,10 @@ regex = '''(?i)\b([a-z]{3,8}\s+){11,23}[a-z]{3,8}\b'''
 entropy = 2.5
 keywords = ["seed", "mnemonic", "recovery", "phrase", "wallet"]
 tags = ["crypto", "seed-phrase", "mnemonic"]
+
+[[rules]]
+id = "aws-secret-access-key"
+description = "AWS Secret Access Key (value only)"
+regex = '''[A-Za-z0-9/+=]{40}'''
+entropy = 4.0
+tags = ["aws", "secret"]
