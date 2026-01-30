@@ -1,0 +1,53 @@
+name: Gitleaks Secret Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config: .gitleaks.toml
+        continue-on-error: true
+
+      - name: Comment on PR if secrets detected
+        if: github.event_name == 'pull_request' && steps.gitleaks.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `
+             **Gitleaks Alert – Secrets Detected**
+
+            @${context.actor} @${context.repo.owner}
+
+            Secrets were detected in this pull request.
+            Please remove them and rotate credentials immediately.
+
+            **Commit:** ${context.sha}
+            `
+            });
+
+      - name: Fail workflow if secrets detected
+        if: steps.gitleaks.outcome == 'failure'
+        run: exit 1
