@@ -7,7 +7,7 @@ Deploy gitleaks secret scanning across developer machines. IT team runs once per
 
 ### 1. Install Gitleaks Globally
 ```bash
-cd /path/to/sysgitleaks
+cd /path/to/gitleaks
 chmod +x install-gitleaks-global.sh && ./install-gitleaks-global.sh
 ```
 *Requires sudo. Installs gitleaks binary and global configuration.*

@@ -86,7 +86,7 @@ GITLEAKS_INJECT
   if [ "$injected" != true ]; then
     cat >> "$temp_file" << 'GITLEAKS_INJECT'
 
-# Gitleaks secret scanning (auto-injected by sysgitleaks)
+# Gitleaks secret scanning (auto-injected by gitleaks)
 if command -v gitleaks &> /dev/null; then
   echo "🔍 Scanning for secrets with gitleaks..."
   GITLEAKS_CONFIG="$HOME/.config/gitleaks/gitleaks.toml"
@@ -128,7 +128,7 @@ function create_husky_precommit {
   }
   
   cat > "$hook_file" << 'HUSKY_HOOK'
-# Gitleaks secret scanning (auto-injected by sysgitleaks)
+# Gitleaks secret scanning (auto-injected by gitleaks)
 if command -v gitleaks &> /dev/null; then
   echo "🔍 Scanning for secrets with gitleaks..."
   GITLEAKS_CONFIG="$HOME/.config/gitleaks/gitleaks.toml"
