@@ -5,7 +5,8 @@
 # Based on git-secrets update-all-repos.sh
 
 # Usage examples:
-#   ./update-all-repos.sh                    # Updates all repos in current directory (recursively)
+#   ./update-all-repos.sh                    # Smart mode: scans current dir + common locations
+#   ./update-all-repos.sh --all              # Scans home + system dirs (auto-sudo if needed)
 #   ./update-all-repos.sh ~/Projects         # Updates all repos in ~/Projects (recursively)
 #   ./update-all-repos.sh ~/Sites ~/Projects # Updates repos in multiple directories
 #   sudo ./update-all-repos.sh /var          # Updates repos in system directories (requires root)
@@ -24,6 +25,7 @@ NORMAL='\e[00m'
 
 # Configuration
 MAX_DEPTH="${MAX_DEPTH:-}"  # Default: unlimited depth
+DRY_RUN="${DRY_RUN:-false}"  # Set to true to only show what would be updated
 
 # Temporary files for tracking stats across subshells
 STATS_DIR=$(mktemp -d)
@@ -270,7 +272,14 @@ function process_repo {
   }
   
   increment_stat "found"
-  printf "%b\n" "${HIGHLIGHT}Installing gitleaks hooks in $(pwd)${NORMAL}"
+  printf "%b\n" "${HIGHLIGHT}Found git repository: $(pwd)${NORMAL}"
+  
+  # Dry run mode - just show what would be updated
+  if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${HIGHLIGHT}→${NORMAL} [DRY RUN] Would install hooks here"
+    increment_stat "updated"
+    return 0
+  fi
   
   # Check if .git directory is writable
   if [ ! -w ".git" ]; then
@@ -429,7 +438,16 @@ function update_directory {
   done < <(find "$target_dir" \
     ${MAX_DEPTH:+-maxdepth $MAX_DEPTH} \
     -type d \
-    \( -name "node_modules" -o -name ".npm" -o -name ".cache" -o -name "__pycache__" -o -name ".venv" -o -name "venv" -o -name ".local" -o -name ".cargo" -o -name ".rustup" -o -name ".m2" -o -name ".gradle" -o -name "target" -o -name "build" -o -name "dist" -o -name "vendor" -o -name ".bundle" \) -prune -o \
+    \( \
+      -name "node_modules" -o -name ".npm" -o -name ".cache" -o -name "__pycache__" \
+      -o -name ".venv" -o -name "venv" -o -name ".local" -o -name ".cargo" \
+      -o -name ".rustup" -o -name ".m2" -o -name ".gradle" -o -name "target" \
+      -o -name "build" -o -name "dist" -o -name "vendor" -o -name ".bundle" \
+      -o -path "*/var/lib/*" -o -path "*/var/cache/*" -o -path "*/var/log/*" \
+      -o -path "*/var/run/*" -o -path "*/var/lock/*" -o -path "*/var/spool/*" \
+      -o -path "*/var/mail/*" -o -path "*/var/backups/*" -o -path "*/var/crash/*" \
+      -o -path "*/var/snap/*" -o -path "*/var/metrics/*" \
+    \) -prune -o \
     -type d -name ".git" -print0 2>/dev/null)
 }
 
@@ -438,6 +456,17 @@ echo -e "${HIGHLIGHT}========================================${NORMAL}"
 echo -e "${HIGHLIGHT}Gitleaks Hook Installer${NORMAL}"
 echo -e "${HIGHLIGHT}========================================${NORMAL}\n"
 
+# Check for --all flag (treat it same as passing home directory)
+if [ "$1" = "--all" ]; then
+  # Replace --all with home directory
+  if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
+    # Running as root, use SUDO_USER's home
+    set -- "$(eval echo ~$SUDO_USER)"
+  else
+    set -- "$HOME"
+  fi
+fi
+
 if [ "$EUID" -eq 0 ]; then
   echo -e "${WARNING}⚠${NORMAL}  Running as root (sudo)"
   echo -e "${HIGHLIGHT}→${NORMAL} Will be able to update system-owned repositories"
@@ -445,12 +474,72 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 if [ "$#" -eq 0 ]; then
+  # No arguments provided - use smart defaults
+  echo -e "${HIGHLIGHT}No directory specified - using smart detection${NORMAL}\n"
+  
+  # Always scan current directory first
   update_directory "$PWD"
+  echo ""
+  
+  # Auto-scan system directories
+  AUTO_SCAN_SYSTEM=true
 else
+  # Check if user provided home directory or similar
+  AUTO_SCAN_SYSTEM=false
+  for arg in "$@"; do
+    # Expand ~ to actual home path
+    expanded_arg=$(eval echo "$arg")
+    
+    # If user specified home directory, also scan system dirs
+    if [ "$expanded_arg" = "$HOME" ] || [ "$expanded_arg" = "~" ]; then
+      AUTO_SCAN_SYSTEM=true
+    fi
+  done
+  
+  # Process specified directories first
   for dir in "$@"; do
     update_directory "$dir"
     echo ""
   done
+fi
+
+# Auto-scan system directories if enabled
+if [ "$AUTO_SCAN_SYSTEM" = true ]; then
+  echo -e "${HIGHLIGHT}Auto-detecting system project directories...${NORMAL}"
+  
+  # Check if common project directories exist and scan them
+  SYSTEM_DIRS=("/var" "/opt" "/srv")
+  
+  DIRS_TO_SCAN=()
+  for dir in "${SYSTEM_DIRS[@]}"; do
+    if [ -d "$dir" ] && [ -r "$dir" ]; then
+      DIRS_TO_SCAN+=("$dir")
+    fi
+  done
+  
+  if [ ${#DIRS_TO_SCAN[@]} -eq 0 ]; then
+    echo -e "${HIGHLIGHT}→${NORMAL} No system directories found"
+    echo ""
+  else
+    echo -e "${HIGHLIGHT}→${NORMAL} Found system directories: ${DIRS_TO_SCAN[*]}"
+    echo ""
+    
+    for dir in "${DIRS_TO_SCAN[@]}"; do
+      echo -e "${HIGHLIGHT}Scanning $dir for repositories...${NORMAL}"
+      
+      # Check if we're already root
+      if [ "$EUID" -eq 0 ]; then
+        update_directory "$dir"
+      else
+        # Not root, need to run this part with sudo
+        echo -e "${WARNING}⚠${NORMAL}  System directory requires root privileges"
+        echo -e "${HIGHLIGHT}→${NORMAL} Running with sudo for $dir..."
+        echo -e "${HIGHLIGHT}→${NORMAL} You may be prompted for your password..."
+        sudo -E bash "$0" "$dir"
+      fi
+      echo ""
+    done
+  fi
 fi
 
 # Get final statistics
@@ -485,6 +574,11 @@ if [ "$REPOS_FAILED" -gt 0 ] || [ "$REPOS_SKIPPED" -gt 0 ]; then
   echo ""
 fi
 
+echo -e "${HIGHLIGHT}Next time, you can use:${NORMAL}"
+echo "  • ${HIGHLIGHT}./update-all-repos.sh --all${NORMAL}  (scans home + /var/systango, auto-handles sudo)"
+echo "  • ${HIGHLIGHT}./update-all-repos.sh ~/Projects${NORMAL}  (specific directory)"
+echo "  • ${HIGHLIGHT}MAX_DEPTH=3 ./update-all-repos.sh ~${NORMAL}  (limit depth for faster scan)"
+echo ""
 echo -e "${HIGHLIGHT}Test the hooks:${NORMAL}"
 echo "  cd /path/to/any/repo"
 echo "  echo 'const key = \"abc\"' > test.js"
