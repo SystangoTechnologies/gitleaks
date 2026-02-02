@@ -98,19 +98,29 @@ function inject_gitleaks_husky {
 
 # Gitleaks secret scanning (auto-injected by gitleaks)
 # Add common gitleaks installation paths to PATH for Husky non-login shell
-export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
-if command -v gitleaks &> /dev/null; then
+# Try to find gitleaks
+GITLEAKS_BIN=""
+for gitleaks_path in /usr/local/bin/gitleaks /opt/homebrew/bin/gitleaks /usr/bin/gitleaks $(which gitleaks 2>/dev/null); do
+  if [ -x "$gitleaks_path" ] 2>/dev/null; then
+    GITLEAKS_BIN="$gitleaks_path"
+    break
+  fi
+done
+
+if [ -n "$GITLEAKS_BIN" ]; then
   echo "🔍 Scanning for secrets with gitleaks..."
   GITLEAKS_CONFIG="$HOME/.config/gitleaks/gitleaks.toml"
   if [ -f "$GITLEAKS_CONFIG" ]; then
-    gitleaks protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
   else
-    gitleaks protect --staged --redact --verbose || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose || exit 1
   fi
   echo "✓ No secrets detected"
 else
-  echo "⚠ Warning: gitleaks not found, skipping secret scan"
+  echo "⚠ Warning: gitleaks not found in PATH, skipping secret scan"
+  echo "  Searched: /usr/local/bin, /opt/homebrew/bin, /usr/bin"
 fi
 GITLEAKS_INJECT
       injected=true
@@ -122,17 +132,30 @@ GITLEAKS_INJECT
     cat >> "$temp_file" << 'GITLEAKS_INJECT'
 
 # Gitleaks secret scanning (auto-injected by gitleaks)
-if command -v gitleaks &> /dev/null; then
+# Add common gitleaks installation paths to PATH for Husky non-login shell
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+# Try to find gitleaks
+GITLEAKS_BIN=""
+for gitleaks_path in /usr/local/bin/gitleaks /opt/homebrew/bin/gitleaks /usr/bin/gitleaks $(which gitleaks 2>/dev/null); do
+  if [ -x "$gitleaks_path" ] 2>/dev/null; then
+    GITLEAKS_BIN="$gitleaks_path"
+    break
+  fi
+done
+
+if [ -n "$GITLEAKS_BIN" ]; then
   echo "🔍 Scanning for secrets with gitleaks..."
   GITLEAKS_CONFIG="$HOME/.config/gitleaks/gitleaks.toml"
   if [ -f "$GITLEAKS_CONFIG" ]; then
-    gitleaks protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
   else
-    gitleaks protect --staged --redact --verbose || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose || exit 1
   fi
   echo "✓ No secrets detected"
 else
-  echo "⚠ Warning: gitleaks not found, skipping secret scan"
+  echo "⚠ Warning: gitleaks not found in PATH, skipping secret scan"
+  echo "  Searched: /usr/local/bin, /opt/homebrew/bin, /usr/bin"
 fi
 GITLEAKS_INJECT
   fi
@@ -163,18 +186,33 @@ function create_husky_precommit {
   }
   
   cat > "$hook_file" << 'HUSKY_HOOK'
+#!/bin/sh
+
 # Gitleaks secret scanning (auto-injected by gitleaks)
-if command -v gitleaks &> /dev/null; then
+# Add common gitleaks installation paths to PATH for Husky non-login shell
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+# Try to find gitleaks
+GITLEAKS_BIN=""
+for gitleaks_path in /usr/local/bin/gitleaks /opt/homebrew/bin/gitleaks /usr/bin/gitleaks $(which gitleaks 2>/dev/null); do
+  if [ -x "$gitleaks_path" ] 2>/dev/null; then
+    GITLEAKS_BIN="$gitleaks_path"
+    break
+  fi
+done
+
+if [ -n "$GITLEAKS_BIN" ]; then
   echo "🔍 Scanning for secrets with gitleaks..."
   GITLEAKS_CONFIG="$HOME/.config/gitleaks/gitleaks.toml"
   if [ -f "$GITLEAKS_CONFIG" ]; then
-    gitleaks protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose --config="$GITLEAKS_CONFIG" || exit 1
   else
-    gitleaks protect --staged --redact --verbose || exit 1
+    "$GITLEAKS_BIN" protect --staged --redact --verbose || exit 1
   fi
   echo "✓ No secrets detected"
 else
-  echo "⚠ Warning: gitleaks not found, skipping secret scan"
+  echo "⚠ Warning: gitleaks not found in PATH, skipping secret scan"
+  echo "  Searched: /usr/local/bin, /opt/homebrew/bin, /usr/bin"
 fi
 HUSKY_HOOK
   
