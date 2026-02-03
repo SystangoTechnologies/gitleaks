@@ -115,11 +115,23 @@ NC='\033[0m' # No Color
 
 # Function to run gitleaks scan
 run_gitleaks_scan() {
-    # Check if gitleaks is installed
-    if ! command -v gitleaks &> /dev/null; then
-        echo -e "${RED}Error: gitleaks is not installed${NC}"
+    # Add common gitleaks installation paths to PATH
+    export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    
+    # Try to find gitleaks executable
+    GITLEAKS_BIN=""
+    for gitleaks_path in /usr/local/bin/gitleaks /opt/homebrew/bin/gitleaks /usr/bin/gitleaks $(which gitleaks 2>/dev/null); do
+      if [ -x "$gitleaks_path" ] 2>/dev/null; then
+        GITLEAKS_BIN="$gitleaks_path"
+        break
+      fi
+    done
+    
+    if [ -z "$GITLEAKS_BIN" ]; then
+        echo -e "${RED}Error: gitleaks is not installed or not found in PATH${NC}"
         echo "Install it from: https://github.com/gitleaks/gitleaks"
         echo "Or run: brew install gitleaks (macOS) or go install github.com/gitleaks/gitleaks/v8@latest"
+        echo "Searched paths: /usr/local/bin, /opt/homebrew/bin, /usr/bin"
         return 1
     fi
 
@@ -131,11 +143,12 @@ run_gitleaks_scan() {
 
     # Run gitleaks on staged changes
     echo -e "${YELLOW}🔍 Scanning for secrets with gitleaks...${NC}"
+    echo -e "${YELLOW}Using: $GITLEAKS_BIN${NC}"
 
     if [ -n "$GITLEAKS_CONFIG" ]; then
-        gitleaks protect --staged --redact --config="$GITLEAKS_CONFIG" --verbose
+        "$GITLEAKS_BIN" protect --staged --redact --config="$GITLEAKS_CONFIG" --verbose
     else
-        gitleaks protect --staged --redact --verbose
+        "$GITLEAKS_BIN" protect --staged --redact --verbose
     fi
 
     if [ $? -eq 0 ]; then
@@ -174,8 +187,20 @@ cat > "$TEMPLATE_DIR/hooks/commit-msg" << 'EOF'
 # Gitleaks commit-msg hook (Smart Auto-Detecting)
 # This is a secondary check in case pre-commit was bypassed
 
-# Skip if gitleaks not installed
-if ! command -v gitleaks &> /dev/null; then
+# Add common gitleaks installation paths to PATH
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+# Find gitleaks executable
+GITLEAKS_BIN=""
+for gitleaks_path in /usr/local/bin/gitleaks /opt/homebrew/bin/gitleaks /usr/bin/gitleaks; do
+  if [ -x "$gitleaks_path" ] 2>/dev/null; then
+    GITLEAKS_BIN="$gitleaks_path"
+    break
+  fi
+done
+
+# Skip if gitleaks not found
+if [ -z "$GITLEAKS_BIN" ]; then
     exit 0
 fi
 
@@ -195,9 +220,9 @@ fi
 
 # Silent check on commit
 if [ -n "$GITLEAKS_CONFIG" ]; then
-    gitleaks protect --staged --redact --config="$GITLEAKS_CONFIG" > /dev/null 2>&1
+    "$GITLEAKS_BIN" protect --staged --redact --config="$GITLEAKS_CONFIG" > /dev/null 2>&1
 else
-    gitleaks protect --staged --redact > /dev/null 2>&1
+    "$GITLEAKS_BIN" protect --staged --redact > /dev/null 2>&1
 fi
 
 if [ $? -ne 0 ]; then
