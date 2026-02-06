@@ -52,11 +52,19 @@ keywords = ["xprv"]
 tags = ["crypto", "cardano", "private-key"]
 
 [[rules]]
-id = "ripple-xrp-private-key"
-description = "Detected Ripple (XRP) secret key"
-regex = '''s[1-9A-HJ-NP-Za-km-z]{28,29}'''
-entropy = 3.5
+id = "ripple-xrp-private-key-literal"
+description = "Detected Ripple (XRP) secret key in literal/assignment"
+regex = '''[:=]\s*["']?\bs[1-9A-HJ-NP-Za-km-z]{28,29}\b["']?'''
+entropy = 4.0
 tags = ["crypto", "ripple", "xrp", "private-key"]
+
+[[rules]]
+id = "ripple-xrp-private-key-context"
+description = "Detected Ripple (XRP) secret key with XRP context"
+regex = '''(?i)(xrp|ripple|secret|private)[^\n]{0,50}\bs[1-9A-HJ-NP-Za-km-z]{28,29}\b'''
+entropy = 3.8
+tags = ["crypto", "ripple", "xrp", "private-key"]
+
 
 [[rules]]
 id = "stellar-private-key"
@@ -90,7 +98,8 @@ tags = ["crypto", "seed-phrase", "mnemonic"]
 
 [[rules]]
 id = "aws-secret-access-key"
-description = "AWS Secret Access Key (value only)"
-regex = '''[A-Za-z0-9/+=]{40}'''
-entropy = 4.0
+description = "AWS Secret Access Key"
+regex = '''(?i)(?:aws|amazon)[_\s-]*secret[_\s-]*(?:access[_\s-]*)?key[\s'"]*[:=][\s'"]*([A-Za-z0-9/+=]{40})\b'''
+entropy = 4.2
+keywords = ["aws", "secret", "amazon"]
 tags = ["aws", "secret"]
