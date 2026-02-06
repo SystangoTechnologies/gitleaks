@@ -78,3 +78,11 @@ func location(newlineIndices [][]int, raw string, matchIndex []int) Location {
 	}
 	return location
 }
+/*
+a=AKIAFAKE1234567890AB
+s=wJalrXUtnFEMI/K7MDENG/bPxRfiCYFAKEKEY
+e='0d7f0363db643cea4c685e56672351d804e7c39b3367c7cffd77176270836691';
+gcp=AIzaSyZzXxYyWwVvUuTtSsRrQqPpOoNnMmLlKk9
+azuresec=abc8Q~aBcDeFgHiJkLmNoPqRsTuVwXyZ12345
+azid=3f8c9e41-2d6b-4f0a-9b5d-91c8f2e9a7b4
+*/
