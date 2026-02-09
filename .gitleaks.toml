@@ -55,7 +55,7 @@ tags = ["crypto", "cardano", "private-key"]
 id = "ripple-xrp-private-key-literal"
 description = "Detected Ripple (XRP) secret key in literal/assignment"
 regex = '''[:=]\s*["']?\bs[1-9A-HJ-NP-Za-km-z]{28,29}\b["']?'''
-entropy = 4.0
+entropy = 4.95
 tags = ["crypto", "ripple", "xrp", "private-key"]
 
 [[rules]]
