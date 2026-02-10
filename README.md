@@ -45,6 +45,7 @@ This fork includes **enhanced detection rules** specifically designed for blockc
 
 Quick deployment for teams and organizations:
 
+**Linux / macOS:**
 ```bash
 # 1. Install gitleaks globally with pre-commit hooks
 chmod +x install-gitleaks-global.sh && ./install-gitleaks-global.sh
@@ -53,11 +54,17 @@ chmod +x install-gitleaks-global.sh && ./install-gitleaks-global.sh
 chmod +x update-all-repos.sh && ./update-all-repos.sh ~
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\install-gitleaks-global.ps1
+.\update-all-repos.ps1 C:\Projects   # optional: add hooks to existing repos
+```
+
 **Features:**
-- ✅ Automatic detection of Husky vs native Git hooks
+- ✅ Automatic detection of Husky vs native Git hooks (Linux/macOS)
 - ✅ Safe injection into existing Husky pre-commit hooks
 - ✅ Works with all Git repositories
-- ✅ Adds PATH for Husky non-login shell compatibility
+- ✅ Windows install script (no admin required)
 
 See `IT-DEPLOYMENT-GUIDE.md` for complete installation instructions.
 
