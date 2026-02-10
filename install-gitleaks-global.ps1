@@ -14,7 +14,7 @@ $GITLEAKS_VERSION = "8.24.2"
 $GITLEAKS_BIN_DIR = Join-Path $env:LOCALAPPDATA "gitleaks\bin"
 $CONFIG_DIR = Join-Path $env:USERPROFILE ".config\gitleaks"
 $TEMPLATE_DIR = Join-Path $env:USERPROFILE ".git-template"
-$TEMPLATE_HOOKS = Join-Path $TEMPLATE_DIR "hooks")
+$TEMPLATE_HOOKS = Join-Path $TEMPLATE_DIR "hooks"
 
 function Write-Step { param($Message) Write-Host $Message -ForegroundColor Cyan }
 function Write-Ok    { param($Message) Write-Host "  OK  $Message" -ForegroundColor Green }
@@ -41,8 +41,10 @@ if ($existing) {
 }
 
 if (-not $SkipBinary) {
+    # Prefer TLS 1.2 for GitHub (avoids "could not create SSL/TLS secure channel" on older Windows)
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
     $zipUrl = "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_windows_x64.zip"
-    $tempDir = Join-Path $env:TEMP "gitleaks-install-$([Guid]::NewGuid().ToString('N').Substring(0,8))")
+    $tempDir = Join-Path $env:TEMP "gitleaks-install-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     try {
         Write-Step "Downloading gitleaks v$GITLEAKS_VERSION..."
@@ -66,8 +68,10 @@ if (-not $SkipBinary) {
 
         # Add to user PATH if not already present
         $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ([string]::IsNullOrEmpty($userPath)) { $userPath = "" }
         if ($userPath -notlike "*$GITLEAKS_BIN_DIR*") {
-            [Environment]::SetEnvironmentVariable("Path", "$userPath;$GITLEAKS_BIN_DIR", "User")
+            $newPath = if ($userPath -eq "") { $GITLEAKS_BIN_DIR } else { "$userPath;$GITLEAKS_BIN_DIR" }
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
             $env:Path = "$env:Path;$GITLEAKS_BIN_DIR"
             Write-Ok "Added gitleaks to user PATH (new terminals will pick it up)"
         }

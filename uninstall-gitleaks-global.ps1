@@ -39,8 +39,10 @@ if (Test-Path $GITLEAKS_BIN_DIR) {
     if ($reply -match '^[Yy]$') {
         Remove-Item -Path $GITLEAKS_BIN_DIR -Recurse -Force -ErrorAction SilentlyContinue
         $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        $newPath = ($userPath -split ';' | Where-Object { $_ -ne $GITLEAKS_BIN_DIR }) -join ';'
-        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        if (-not [string]::IsNullOrEmpty($userPath)) {
+            $newPath = ($userPath -split ';' | Where-Object { $_ -ne $GITLEAKS_BIN_DIR }) -join ';'
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        }
         Write-Ok "Removed gitleaks binary and PATH entry"
     }
 }
