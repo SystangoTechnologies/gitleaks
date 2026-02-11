@@ -18,7 +18,7 @@ paths = [
 id = "ethereum-private-key"
 description = "Detected Ethereum/EVM private key (64 hex chars)"
 regex = '''(?:0x)?[a-fA-F0-9]{64}'''
-entropy = 3.0
+entropy = 4.0
 tags = ["crypto", "evm", "ethereum", "private-key"]
 
 [[rules]]
