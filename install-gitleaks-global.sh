@@ -34,14 +34,34 @@ if command -v gitleaks &> /dev/null; then
 fi
 
 if [ "$SKIP_BINARY_INSTALL" != "true" ]; then
-    echo -e "${HIGHLIGHT}Downloading gitleaks v${GITLEAKS_VERSION}...${NORMAL}"
+    # Detect OS and architecture for correct binary
+    OS=$(uname -s)
+    ARCH=$(uname -m)
+    case "$OS" in
+        Linux)
+            case "$ARCH" in
+                x86_64)   GITLEAKS_ARCH="linux_x64" ;;
+                arm64|aarch64) GITLEAKS_ARCH="linux_arm64" ;;
+                *) echo -e "${ERROR}✗${NORMAL} Unsupported architecture: $ARCH"; exit 1 ;;
+            esac ;;
+        Darwin)
+            case "$ARCH" in
+                x86_64)   GITLEAKS_ARCH="darwin_x64" ;;
+                arm64)    GITLEAKS_ARCH="darwin_arm64" ;;
+                *) echo -e "${ERROR}✗${NORMAL} Unsupported architecture: $ARCH"; exit 1 ;;
+            esac ;;
+        *)
+            echo -e "${ERROR}✗${NORMAL} Unsupported OS: $OS"; exit 1 ;;
+    esac
+    GITLEAKS_ARCHIVE="gitleaks_${GITLEAKS_VERSION}_${GITLEAKS_ARCH}.tar.gz"
+    echo -e "${HIGHLIGHT}Downloading gitleaks v${GITLEAKS_VERSION} (${GITLEAKS_ARCH})...${NORMAL}"
     
     # Create temp directory
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
     
     # Download and extract
-    if curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz; then
+    if curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${GITLEAKS_ARCHIVE}" -o gitleaks.tar.gz; then
         echo -e "${SUCCESS}✓${NORMAL} Downloaded gitleaks"
     else
         echo -e "${ERROR}✗${NORMAL} Failed to download gitleaks"
@@ -49,20 +69,30 @@ if [ "$SKIP_BINARY_INSTALL" != "true" ]; then
     fi
     
     tar -xzf gitleaks.tar.gz
-    chmod +x gitleaks
+    # Handle both flat (./gitleaks) and nested (./subdir/gitleaks) tarball layout (Linux vs Darwin releases)
+    if [ -f "./gitleaks" ]; then
+        GITLEAKS_BIN="./gitleaks"
+    else
+        GITLEAKS_BIN=$(find . -name gitleaks -type f 2>/dev/null | head -1)
+    fi
+    if [ -z "$GITLEAKS_BIN" ] || [ ! -f "$GITLEAKS_BIN" ]; then
+        echo -e "${ERROR}✗${NORMAL} gitleaks binary not found in archive"
+        exit 1
+    fi
+    chmod +x "$GITLEAKS_BIN"
     
     # Test the binary
-    if ./gitleaks version > /dev/null 2>&1; then
-        DOWNLOADED_VERSION=$(./gitleaks version)
+    if "$GITLEAKS_BIN" version > /dev/null 2>&1; then
+        DOWNLOADED_VERSION=$("$GITLEAKS_BIN" version)
         echo -e "${SUCCESS}✓${NORMAL} Verified gitleaks binary: $DOWNLOADED_VERSION"
     else
         echo -e "${ERROR}✗${NORMAL} Downloaded binary is not working"
         exit 1
     fi
     
-    # Install to /usr/local/bin (requires sudo)
+    # Install to /usr/local/bin (requires sudo); ensure directory exists (e.g. on fresh macOS)
     echo -e "${HIGHLIGHT}Installing to /usr/local/bin/ (requires sudo)...${NORMAL}"
-    if sudo mv gitleaks /usr/local/bin/gitleaks; then
+    if sudo mkdir -p /usr/local/bin && sudo mv "$GITLEAKS_BIN" /usr/local/bin/gitleaks; then
         echo -e "${SUCCESS}✓${NORMAL} Installed gitleaks to /usr/local/bin/gitleaks"
         
         # Verify installation
@@ -106,6 +136,9 @@ cat > "$TEMPLATE_DIR/hooks/pre-commit" << 'EOF'
 # Gitleaks pre-commit hook (Smart Auto-Detecting)
 # Prevents committing secrets to git repository
 # Automatically detects and adapts to Husky or native Git hooks
+
+# Ensure gitleaks is on PATH (Linux: /usr/local/bin, macOS: /usr/local/bin or Homebrew /opt/homebrew/bin)
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 # Colors
 RED='\033[0;31m'
@@ -173,6 +206,9 @@ cat > "$TEMPLATE_DIR/hooks/commit-msg" << 'EOF'
 #!/bin/bash
 # Gitleaks commit-msg hook (Smart Auto-Detecting)
 # This is a secondary check in case pre-commit was bypassed
+
+# Ensure gitleaks is on PATH (Linux: /usr/local/bin, macOS: /usr/local/bin or Homebrew /opt/homebrew/bin)
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 # Skip if gitleaks not installed
 if ! command -v gitleaks &> /dev/null; then
