@@ -36,10 +36,15 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser   # if need
 *No admin required. Installs gitleaks to `%LOCALAPPDATA%\gitleaks\bin` and adds it to your user PATH.*
 
 #### 2. Update All Repositories
+Run with **no arguments** to scan all local drives (C:\, D:\, E:\, etc.) and install hooks in every repo. One command for the whole machine.
 ```powershell
-.\update-all-repos.ps1                    # current directory only
-.\update-all-repos.ps1 C:\Projects       # all repos under C:\Projects
-$env:MAX_DEPTH = 3; .\update-all-repos.ps1 C:\Projects   # limit depth
+.\update-all-repos.ps1
+```
+Optional: limit to one drive or folder (faster):
+```powershell
+.\update-all-repos.ps1 C:\Projects
+.\update-all-repos.ps1 C:\ D:\
+$env:MAX_DEPTH = 4; .\update-all-repos.ps1 C:\   # limit depth on C:
 ```
 
 #### 3. Uninstall
