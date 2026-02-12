@@ -52,21 +52,15 @@ $script:Updated = 0
 $script:Skipped = 0
 $script:Failed = 0
 
-# Progress counter: update every N folders so user sees activity during long scans
-$script:ProgressInterval = 500
-
 function Get-GitRepos {
     param([string]$Root, [int]$MaxDepth = 0)
-    $script:DirsScanned = 0
     $script:ReposFoundList = [System.Collections.Generic.List[string]]::new()
-    $script:LastProgressAt = 0
 
     function Search-Dirs {
         param([string]$Path, [int]$Depth)
-        $script:DirsScanned++
-        if (($script:DirsScanned - $script:LastProgressAt) -ge $script:ProgressInterval) {
-            Write-Host "  ... checked $($script:DirsScanned) folders, found $($script:ReposFoundList.Count) repos" -ForegroundColor Gray
-            $script:LastProgressAt = $script:DirsScanned
+        # Log only parent-level folders (direct children of drive or of the given root)
+        if ($Depth -eq 1) {
+            Write-Host "  Scanning $Path" -ForegroundColor Gray
         }
         if (Test-Path (Join-Path $Path ".git")) {
             $script:ReposFoundList.Add($Path) | Out-Null
@@ -78,7 +72,7 @@ function Get-GitRepos {
     }
 
     Search-Dirs -Path $Root -Depth 0
-    Write-Host "  Scan complete: checked $($script:DirsScanned) folders, found $($script:ReposFoundList.Count) repos" -ForegroundColor Cyan
+    Write-Host "  Scan complete: found $($script:ReposFoundList.Count) repos" -ForegroundColor Cyan
     $script:ReposFoundList | Sort-Object -Unique
 }
 
