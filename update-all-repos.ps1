@@ -52,18 +52,34 @@ $script:Updated = 0
 $script:Skipped = 0
 $script:Failed = 0
 
+# Progress counter: update every N folders so user sees activity during long scans
+$script:ProgressInterval = 500
+
 function Get-GitRepos {
     param([string]$Root, [int]$MaxDepth = 0)
-    $repos = @()
-    # Include root if it is itself a git repo (Get-ChildItem -Recurse only returns subdirs, not root)
-    if (Test-Path (Join-Path $Root ".git")) {
-        $repos += $Root
+    $script:DirsScanned = 0
+    $script:ReposFoundList = [System.Collections.Generic.List[string]]::new()
+    $script:LastProgressAt = 0
+
+    function Search-Dirs {
+        param([string]$Path, [int]$Depth)
+        $script:DirsScanned++
+        if (($script:DirsScanned - $script:LastProgressAt) -ge $script:ProgressInterval) {
+            Write-Host "  ... checked $($script:DirsScanned) folders, found $($script:ReposFoundList.Count) repos" -ForegroundColor Gray
+            $script:LastProgressAt = $script:DirsScanned
+        }
+        if (Test-Path (Join-Path $Path ".git")) {
+            $script:ReposFoundList.Add($Path) | Out-Null
+        }
+        if ($MaxDepth -gt 0 -and $Depth -ge $MaxDepth) { return }
+        Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Search-Dirs -Path $_.FullName -Depth ($Depth + 1)
+        }
     }
-    $params = @{ Path = $Root; Directory = $true; Recurse = $true; ErrorAction = 'SilentlyContinue' }
-    if ($MaxDepth -gt 0) { $params['Depth'] = $MaxDepth }
-    $subdirs = Get-ChildItem @params | Where-Object { Test-Path (Join-Path $_.FullName ".git") }
-    $repos += ($subdirs | ForEach-Object { $_.FullName })
-    $repos | Sort-Object -Unique
+
+    Search-Dirs -Path $Root -Depth 0
+    Write-Host "  Scan complete: checked $($script:DirsScanned) folders, found $($script:ReposFoundList.Count) repos" -ForegroundColor Cyan
+    $script:ReposFoundList | Sort-Object -Unique
 }
 
 function Install-Hooks {
