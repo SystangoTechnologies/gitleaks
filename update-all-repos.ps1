@@ -37,7 +37,8 @@ $commitMsgSrc = Join-Path $TEMPLATE_HOOKS "commit-msg"
 
 # No path given = scan all local fixed drives (C:\, D:\, E:\, etc.)
 if ($TargetPaths.Count -eq 0) {
-    $TargetPaths = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady -and $null -ne $_.Root } | ForEach-Object { $_.Root.TrimEnd('\') + '\' }
+    # Use .Name (e.g. "C:") to avoid null .Root on some Windows setups
+    $TargetPaths = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady } | ForEach-Object { $_.Name + '\' }
     if ($TargetPaths.Count -eq 0) {
         Write-Fail "No local drives found."
         exit 1
