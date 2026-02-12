@@ -235,7 +235,8 @@ Write-Host "  * Hooks:           pre-commit, commit-msg"
 
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. All NEW git repositories will automatically get gitleaks hooks."
-Write-Host "  2. For EXISTING repos, run: .\update-all-repos.ps1 [directory]"
+Write-Host "  2. For EXISTING repos, run (updates all repos on all local drives):"
+Write-Host "     .\update-all-repos.ps1" -ForegroundColor Gray
 Write-Host "  3. Or in each repo: git init  (re-run to apply template)"
 Write-Host "`nNote: If gitleaks is not found in a new terminal, close and reopen PowerShell, or run:"
 Write-Host "  `$env:Path += `";$GITLEAKS_BIN_DIR`""

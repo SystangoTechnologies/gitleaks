@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 # Installs gitleaks pre-commit hooks in existing repositories (Windows).
 # Usage:
-#   .\update-all-repos.ps1                    # Current directory only
-#   .\update-all-repos.ps1 C:\Projects        # All repos under C:\Projects
+#   .\update-all-repos.ps1                    # All local drives (C:\, D:\, E:\, etc.) - single command for all repos
+#   .\update-all-repos.ps1 C:\Projects        # Only repos under C:\Projects
 #   .\update-all-repos.ps1 C:\Projects C:\Sites
-# Optional: $MAX_DEPTH = 3; .\update-all-repos.ps1 C:\Projects
+# Optional: $MAX_DEPTH = 3; .\update-all-repos.ps1 C:\  # Limit depth on a drive
 
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -35,8 +35,17 @@ if (-not (Test-Path (Join-Path $TEMPLATE_HOOKS "pre-commit"))) {
 $preCommitSrc = Join-Path $TEMPLATE_HOOKS "pre-commit"
 $commitMsgSrc = Join-Path $TEMPLATE_HOOKS "commit-msg"
 
+# No path given = scan all local fixed drives (C:\, D:\, E:\, etc.)
 if ($TargetPaths.Count -eq 0) {
-    $TargetPaths = @(Get-Location).Path
+    # Use .Name (e.g. "C:") to avoid null .Root on some Windows setups
+    $TargetPaths = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady } | ForEach-Object { $_.Name + '\' }
+    if ($TargetPaths.Count -eq 0) {
+        Write-Fail "No local drives found."
+        exit 1
+    }
+    Write-Host "No path specified: scanning all local drives ( $($TargetPaths -join ', ') )" -ForegroundColor Cyan
+    Write-Host "This may take a while on large drives. Press Ctrl+C to cancel." -ForegroundColor Gray
+    Write-Host ""
 }
 
 $script:Updated = 0
@@ -45,10 +54,26 @@ $script:Failed = 0
 
 function Get-GitRepos {
     param([string]$Root, [int]$MaxDepth = 0)
-    $params = @{ Path = $Root; Directory = $true; Recurse = $true; ErrorAction = 'SilentlyContinue' }
-    if ($MaxDepth -gt 0) { $params['Depth'] = $MaxDepth }
-    $dirs = Get-ChildItem @params | Where-Object { Test-Path (Join-Path $_.FullName ".git") }
-    $dirs | ForEach-Object { $_.FullName }
+    $script:ReposFoundList = [System.Collections.Generic.List[string]]::new()
+
+    function Search-Dirs {
+        param([string]$Path, [int]$Depth)
+        # Log only parent-level folders (direct children of drive or of the given root)
+        if ($Depth -eq 1) {
+            Write-Host "  Scanning $Path" -ForegroundColor Gray
+        }
+        if (Test-Path (Join-Path $Path ".git")) {
+            $script:ReposFoundList.Add($Path) | Out-Null
+        }
+        if ($MaxDepth -gt 0 -and $Depth -ge $MaxDepth) { return }
+        Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Search-Dirs -Path $_.FullName -Depth ($Depth + 1)
+        }
+    }
+
+    Search-Dirs -Path $Root -Depth 0
+    Write-Host "  Scan complete: found $($script:ReposFoundList.Count) repos" -ForegroundColor Cyan
+    $script:ReposFoundList | Sort-Object -Unique
 }
 
 function Install-Hooks {
@@ -77,7 +102,6 @@ foreach ($target in $TargetPaths) {
     $maxDepth = if ($env:MAX_DEPTH) { [int]$env:MAX_DEPTH } else { 0 }
     Write-Step "Scanning $root for git repositories..."
     $repos = Get-GitRepos -Root $root -MaxDepth $maxDepth
-    $repos = $repos | Sort-Object -Unique
     $i = 0
     foreach ($repo in $repos) {
         $i++
@@ -94,4 +118,9 @@ foreach ($target in $TargetPaths) {
 
 Write-Host ""
 Write-Host "Done. Updated: $($script:Updated), Failed: $($script:Failed)" -ForegroundColor Cyan
+if ($script:Updated -eq 0 -and $script:Failed -eq 0) {
+    Write-Host ""
+    Write-Warn "No git repositories were found in the scanned path(s)."
+    Write-Host "  To scan only a specific folder: .\update-all-repos.ps1 C:\Projects" -ForegroundColor Gray
+}
 if ($script:Failed -gt 0) { exit 1 }
