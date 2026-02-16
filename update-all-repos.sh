@@ -70,6 +70,43 @@ if [ ! -d "$TEMPLATE_DIR/hooks" ]; then
     exit 1
 fi
 
+# Function to sync global gitleaks config from repository
+function sync_global_config {
+  # Determine the script directory (where .gitleaks.toml should be)
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local source_config="$script_dir/.gitleaks.toml"
+  
+  # Determine the target config directory (handle sudo case)
+  local config_dir="$HOME/.config/gitleaks"
+  if [ -n "$SUDO_USER" ]; then
+    config_dir=$(eval echo ~$SUDO_USER)/.config/gitleaks
+  fi
+  local target_config="$config_dir/gitleaks.toml"
+  
+  # Check if source config exists
+  if [ ! -f "$source_config" ]; then
+    echo -e "${WARNING}⚠${NORMAL}  Warning: Source config not found: $source_config"
+    echo -e "${HIGHLIGHT}→${NORMAL} Skipping config sync"
+    return 1
+  fi
+  
+  # Create config directory if it doesn't exist
+  mkdir -p "$config_dir" 2>/dev/null || {
+    echo -e "${ERROR}✗${NORMAL} Failed to create config directory: $config_dir"
+    return 1
+  }
+  
+  # Copy the config file
+  if cp "$source_config" "$target_config" 2>/dev/null; then
+    echo -e "${SUCCESS}✓${NORMAL} Synced global config: $target_config"
+    return 0
+  else
+    echo -e "${ERROR}✗${NORMAL} Failed to sync config to: $target_config"
+    return 1
+  fi
+}
+
+
 # Function to check if gitleaks is already in a file
 function has_gitleaks {
   local file="$1"
@@ -472,6 +509,11 @@ if [ "$EUID" -eq 0 ]; then
   echo -e "${HIGHLIGHT}→${NORMAL} Will be able to update system-owned repositories"
   echo ""
 fi
+
+# Sync global gitleaks config from repository
+echo -e "${HIGHLIGHT}Syncing global gitleaks configuration...${NORMAL}"
+sync_global_config
+echo ""
 
 if [ "$#" -eq 0 ]; then
   # No arguments provided - use smart defaults

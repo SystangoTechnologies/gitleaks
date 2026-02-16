@@ -16,15 +16,14 @@ paths = [
 
 [[rules]]
 id = "ethereum-private-key"
-description = "Detected Ethereum/EVM private key (64 hex chars)"
-regex = '''(?:0x)?[a-fA-F0-9]{64}'''
-entropy = 4.0
+description = "Ethereum private key (exact 64 hex chars, standalone)"
+regex = '''(^|[^a-fA-F0-9])(0x)?[a-fA-F0-9]{64}([^a-fA-F0-9]|$)'''
 tags = ["crypto", "evm", "ethereum", "private-key"]
 
 [[rules]]
 id = "bitcoin-wif-private-key"
 description = "Detected Bitcoin WIF private key"
-regex = '''[5KL][1-9A-HJ-NP-Za-km-z]{50,51}'''
+regex = '''\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b'''
 entropy = 3.5
 tags = ["crypto", "bitcoin", "private-key"]
 
@@ -38,7 +37,7 @@ tags = ["crypto", "solana", "private-key"]
 [[rules]]
 id = "tezos-private-key"
 description = "Detected Tezos private key"
-regex = '''(edsk|spsk|p2sk)[1-9A-HJ-NP-Za-km-z]{50,100}'''
+regex = '''\b(edsk[1-9A-HJ-NP-Za-km-z]{50}|edsk[1-9A-HJ-NP-Za-km-z]{94}|spsk[1-9A-HJ-NP-Za-km-z]{50}|p2sk[1-9A-HJ-NP-Za-km-z]{50})\b'''
 entropy = 3.5
 keywords = ["edsk", "spsk", "p2sk"]
 tags = ["crypto", "tezos", "private-key"]
