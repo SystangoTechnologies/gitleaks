@@ -32,8 +32,46 @@ if (-not (Test-Path (Join-Path $TEMPLATE_HOOKS "pre-commit"))) {
     exit 1
 }
 
+# Function to sync global gitleaks config from repository
+function Sync-GlobalConfig {
+    $scriptDir = Split-Path -Parent $PSCommandPath
+    $sourceConfig = Join-Path $scriptDir ".gitleaks.toml"
+    $configDir = Join-Path $env:USERPROFILE ".config\gitleaks"
+    $targetConfig = Join-Path $configDir "gitleaks.toml"
+    
+    # Check if source config exists
+    if (-not (Test-Path $sourceConfig)) {
+        Write-Warn "Source config not found: $sourceConfig"
+        Write-Host "  Skipping config sync" -ForegroundColor Gray
+        return $false
+    }
+    
+    # Create config directory if it doesn't exist
+    try {
+        New-Item -ItemType Directory -Path $configDir -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Fail "Failed to create config directory: $configDir"
+        return $false
+    }
+    
+    # Copy the config file
+    try {
+        Copy-Item -Path $sourceConfig -Destination $targetConfig -Force -ErrorAction Stop
+        Write-Ok "Synced global config: $targetConfig"
+        return $true
+    } catch {
+        Write-Fail "Failed to sync config to: $targetConfig"
+        return $false
+    }
+}
+
 $preCommitSrc = Join-Path $TEMPLATE_HOOKS "pre-commit"
 $commitMsgSrc = Join-Path $TEMPLATE_HOOKS "commit-msg"
+
+# Sync global gitleaks config from repository
+Write-Step "Syncing global gitleaks configuration..."
+Sync-GlobalConfig | Out-Null
+Write-Host ""
 
 # No path given = scan all local fixed drives (C:\, D:\, E:\, etc.)
 if ($TargetPaths.Count -eq 0) {
