@@ -121,12 +121,21 @@ function Get-GitRepos {
 function Install-Hooks {
     param([string]$RepoDir)
     $hooksDir = Join-Path $RepoDir ".git\hooks"
-    if (-not (Test-Path $hooksDir)) { return $false }
+    # Create hooks directory if it doesn't exist
+    if (-not (Test-Path $hooksDir)) {
+        try {
+            New-Item -ItemType Directory -Path $hooksDir -Force -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Fail "Cannot create hooks dir: $hooksDir - $($_.Exception.Message)"
+            return $false
+        }
+    }
     try {
-        Copy-Item -Path $preCommitSrc -Destination (Join-Path $hooksDir "pre-commit") -Force
-        Copy-Item -Path $commitMsgSrc -Destination (Join-Path $hooksDir "commit-msg") -Force
+        Copy-Item -Path $preCommitSrc -Destination (Join-Path $hooksDir "pre-commit") -Force -ErrorAction Stop
+        Copy-Item -Path $commitMsgSrc -Destination (Join-Path $hooksDir "commit-msg") -Force -ErrorAction Stop
         return $true
     } catch {
+        Write-Fail "Hook copy error: $($_.Exception.Message)"
         return $false
     }
 }
