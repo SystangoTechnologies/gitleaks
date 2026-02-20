@@ -100,8 +100,12 @@ function Get-GitRepos {
         if ($Depth -eq 1) {
             Write-Host "  Scanning $Path" -ForegroundColor Gray
         }
-        if (Test-Path (Join-Path $Path ".git")) {
-            $script:ReposFoundList.Add($Path) | Out-Null
+        try {
+            if (Test-Path (Join-Path $Path ".git") -ErrorAction SilentlyContinue) {
+                $script:ReposFoundList.Add($Path) | Out-Null
+            }
+        } catch {
+            # Silently skip paths we don't have permission to read
         }
         if ($MaxDepth -gt 0 -and $Depth -ge $MaxDepth) { return }
         Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
