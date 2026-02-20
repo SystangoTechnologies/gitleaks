@@ -88,11 +88,21 @@ Write-Host ""
 
 # Step 2: Global config
 Write-Step "Step 2: Setting up global configuration..."
-New-Item -ItemType Directory -Path $CONFIG_DIR -Force | Out-Null
+try {
+    New-Item -ItemType Directory -Path $CONFIG_DIR -Force -ErrorAction Stop | Out-Null
+} catch {
+    Write-Fail "Failed to create config directory: $CONFIG_DIR - $($_.Exception.Message)"
+    exit 1
+}
 $configSource = Join-Path $PSScriptRoot ".gitleaks.toml"
 if (Test-Path $configSource) {
-    Copy-Item -Path $configSource -Destination (Join-Path $CONFIG_DIR "gitleaks.toml") -Force
-    Write-Ok "Copied gitleaks config to $CONFIG_DIR\gitleaks.toml"
+    try {
+        Copy-Item -Path $configSource -Destination (Join-Path $CONFIG_DIR "gitleaks.toml") -Force -ErrorAction Stop
+        Write-Ok "Copied gitleaks config to $CONFIG_DIR\gitleaks.toml"
+    } catch {
+        Write-Fail "Failed to copy config file: $($_.Exception.Message)"
+        exit 1
+    }
 } else {
     Write-Warn ".gitleaks.toml not found in script dir; config not copied. Create $CONFIG_DIR\gitleaks.toml manually if needed."
 }
@@ -101,7 +111,12 @@ Write-Host ""
 
 # Step 3: Git template and hooks
 Write-Step "Step 3: Creating git template directory..."
-New-Item -ItemType Directory -Path $TEMPLATE_HOOKS -Force | Out-Null
+try {
+    New-Item -ItemType Directory -Path $TEMPLATE_HOOKS -Force -ErrorAction Stop | Out-Null
+} catch {
+    Write-Fail "Failed to create template hooks directory: $TEMPLATE_HOOKS - $($_.Exception.Message)"
+    exit 1
+}
 
 $preCommitHook = @'
 #!/bin/bash
@@ -210,17 +225,28 @@ exit 0
 # Write hooks with LF line endings (Git for Windows runs them with bash)
 $preCommitPath = Join-Path $TEMPLATE_HOOKS "pre-commit"
 $commitMsgPath = Join-Path $TEMPLATE_HOOKS "commit-msg"
-[System.IO.File]::WriteAllText($preCommitPath, $preCommitHook.Replace("`r`n", "`n"))
-[System.IO.File]::WriteAllText($commitMsgPath, $commitMsgHook.Replace("`r`n", "`n"))
-Write-Ok "Created pre-commit and commit-msg hooks in $TEMPLATE_HOOKS"
+try {
+    [System.IO.File]::WriteAllText($preCommitPath, $preCommitHook.Replace("`r`n", "`n"))
+    [System.IO.File]::WriteAllText($commitMsgPath, $commitMsgHook.Replace("`r`n", "`n"))
+    Write-Ok "Created pre-commit and commit-msg hooks in $TEMPLATE_HOOKS"
+} catch {
+    Write-Fail "Failed to write hook files: $($_.Exception.Message)"
+    exit 1
+}
 
 Write-Host ""
 
 # Step 4: Configure git template
 Write-Step "Step 4: Configuring git to use template directory..."
 $templateDirNorm = $TEMPLATE_DIR -replace '\\', '/'
-git config --global init.templateDir $templateDirNorm
-Write-Ok "Set global git template directory"
+try {
+    git config --global init.templateDir $templateDirNorm
+    if ($LASTEXITCODE -ne 0) { throw "git config exited with code $LASTEXITCODE" }
+    Write-Ok "Set global git template directory"
+} catch {
+    Write-Fail "Failed to set git template directory: $($_.Exception.Message)"
+    Write-Warn "You can set it manually: git config --global init.templateDir '$templateDirNorm'"
+}
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
