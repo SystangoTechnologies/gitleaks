@@ -100,8 +100,12 @@ function Get-GitRepos {
         if ($Depth -eq 1) {
             Write-Host "  Scanning $Path" -ForegroundColor Gray
         }
-        if (Test-Path (Join-Path $Path ".git")) {
-            $script:ReposFoundList.Add($Path) | Out-Null
+        try {
+            if (Test-Path (Join-Path $Path ".git") -ErrorAction SilentlyContinue) {
+                $script:ReposFoundList.Add($Path) | Out-Null
+            }
+        } catch {
+            # Silently skip paths we don't have permission to read
         }
         if ($MaxDepth -gt 0 -and $Depth -ge $MaxDepth) { return }
         Get-ChildItem -Path $Path -Directory -ErrorAction SilentlyContinue | ForEach-Object {
@@ -117,12 +121,21 @@ function Get-GitRepos {
 function Install-Hooks {
     param([string]$RepoDir)
     $hooksDir = Join-Path $RepoDir ".git\hooks"
-    if (-not (Test-Path $hooksDir)) { return $false }
+    # Create hooks directory if it doesn't exist
+    if (-not (Test-Path $hooksDir)) {
+        try {
+            New-Item -ItemType Directory -Path $hooksDir -Force -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Fail "Cannot create hooks dir: $hooksDir - $($_.Exception.Message)"
+            return $false
+        }
+    }
     try {
-        Copy-Item -Path $preCommitSrc -Destination (Join-Path $hooksDir "pre-commit") -Force
-        Copy-Item -Path $commitMsgSrc -Destination (Join-Path $hooksDir "commit-msg") -Force
+        Copy-Item -Path $preCommitSrc -Destination (Join-Path $hooksDir "pre-commit") -Force -ErrorAction Stop
+        Copy-Item -Path $commitMsgSrc -Destination (Join-Path $hooksDir "commit-msg") -Force -ErrorAction Stop
         return $true
     } catch {
+        Write-Fail "Hook copy error: $($_.Exception.Message)"
         return $false
     }
 }
